@@ -1,0 +1,32 @@
+apiVersion: apps/v1beta2
+kind: DaemonSet
+metadata:
+  name: lxcfs
+  labels:
+    app: lxcfs
+spec:
+  selector:
+    matchLabels:
+      app: lxcfs
+  template:
+    metadata:
+      labels:
+        app: lxcfs
+    spec:
+      hostPID: true
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      containers:
+      - name: lxcfs
+        image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs:2.0.8
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: rootfs
+          mountPath: /host
+      volumes:
+      - name: rootfs
+        hostPath:
+          path: /

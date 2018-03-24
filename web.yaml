@@ -1,0 +1,27 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    "initializer.kubernetes.io/lxcfs": "true"
+  labels:
+    app: web
+  name: web
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: web
+      name: web
+    spec:
+      containers:
+        - name: web
+          image: httpd:2
+          imagePullPolicy: Always
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "500m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
