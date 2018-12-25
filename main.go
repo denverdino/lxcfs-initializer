@@ -14,13 +14,13 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"k8s.io/api/apps/v1"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"k8s.io/api/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -72,7 +72,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//:/proc/cpuinfo:rw -v :/proc/diskstats:rw -v /var/lib/lxcfs/proc/meminfo:/proc/meminfo:rw -v /var/lib/lxcfs/proc/stat:/proc/stat:rw
+	// -v /var/lib/lxcfs/proc/cpuinfo:/proc/cpuinfo:rw
+	// -v /var/lib/lxcfs/proc/diskstats:/proc/diskstats:rw
+	// -v /var/lib/lxcfs/proc/meminfo:/proc/meminfo:rw
+	// -v /var/lib/lxcfs/proc/stat:/proc/stat:rw
+	// -v /var/lib/lxcfs/proc/swaps:/proc/swaps:rw
+	// -v /var/lib/lxcfs/proc/uptime:/proc/uptime:rw
 	c := &config{
 		volumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{
@@ -90,6 +95,14 @@ func main() {
 			corev1.VolumeMount{
 				Name:      "lxcfs-proc-stat",
 				MountPath: "/proc/stat",
+			},
+			corev1.VolumeMount{
+				Name:      "lxcfs-proc-swaps",
+				MountPath: "/proc/swaps",
+			},
+			corev1.VolumeMount{
+				Name:      "lxcfs-proc-uptime",
+				MountPath: "/proc/uptime",
 			},
 		},
 		volumes: []corev1.Volume{
@@ -125,10 +138,26 @@ func main() {
 					},
 				},
 			},
+			corev1.Volume{
+				Name: "lxcfs-proc-swaps",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/lib/lxcfs/proc/swaps",
+					},
+				},
+			},
+			corev1.Volume{
+				Name: "lxcfs-proc-uptime",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/lib/lxcfs/proc/uptime",
+					},
+				},
+			},
 		},
 	}
 	// Watch uninitialized Deployments in all namespaces.
-	restClient := clientset.AppsV1beta1().RESTClient()
+	restClient := clientset.AppsV1().RESTClient()
 	watchlist := cache.NewListWatchFromClient(restClient, "deployments", corev1.NamespaceAll, fields.Everything())
 
 	// Wrap the returned watchlist to workaround the inability to include
@@ -146,10 +175,10 @@ func main() {
 
 	resyncPeriod := 30 * time.Second
 
-	_, controller := cache.NewInformer(includeUninitializedWatchlist, &v1beta1.Deployment{}, resyncPeriod,
+	_, controller := cache.NewInformer(includeUninitializedWatchlist, &v1.Deployment{}, resyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				err := initializeDeployment(obj.(*v1beta1.Deployment), c, clientset)
+				err := initializeDeployment(obj.(*v1.Deployment), c, clientset)
 				if err != nil {
 					log.Println(err)
 				}
@@ -168,18 +197,14 @@ func main() {
 	close(stop)
 }
 
-func initializeDeployment(deployment *v1beta1.Deployment, c *config, clientset *kubernetes.Clientset) error {
+func initializeDeployment(deployment *v1.Deployment, c *config, clientset *kubernetes.Clientset) error {
 	if deployment.ObjectMeta.GetInitializers() != nil {
 		pendingInitializers := deployment.ObjectMeta.GetInitializers().Pending
 
 		if initializerName == pendingInitializers[0].Name {
 			log.Printf("Initializing deployment: %s", deployment.Name)
 
-			o, err := runtime.NewScheme().DeepCopy(deployment)
-			if err != nil {
-				return err
-			}
-			initializedDeployment := o.(*v1beta1.Deployment)
+			initializedDeployment := deployment.DeepCopy()
 
 			// Remove self from the list of pending Initializers while preserving ordering.
 			if len(pendingInitializers) == 1 {
@@ -193,7 +218,7 @@ func initializeDeployment(deployment *v1beta1.Deployment, c *config, clientset *
 				_, ok := a[annotation]
 				if !ok {
 					log.Printf("Required '%s' annotation missing; skipping lxcfs injection", annotation)
-					_, err = clientset.AppsV1beta1().Deployments(deployment.Namespace).Update(initializedDeployment)
+					_, err := clientset.AppsV1().Deployments(deployment.Namespace).Update(initializedDeployment)
 					if err != nil {
 						return err
 					}
@@ -221,12 +246,12 @@ func initializeDeployment(deployment *v1beta1.Deployment, c *config, clientset *
 				return err
 			}
 
-			patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, v1beta1.Deployment{})
+			patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, v1.Deployment{})
 			if err != nil {
 				return err
 			}
 
-			_, err = clientset.AppsV1beta1().Deployments(deployment.Namespace).Patch(deployment.Name, types.StrategicMergePatchType, patchBytes)
+			_, err = clientset.AppsV1().Deployments(deployment.Namespace).Patch(deployment.Name, types.StrategicMergePatchType, patchBytes)
 			if err != nil {
 				return err
 			}

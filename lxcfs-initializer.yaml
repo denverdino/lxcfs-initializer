@@ -6,7 +6,7 @@ metadata:
 rules:
 - apiGroups: ["*"]
   resources: ["deployments"]
-  verbs: ["initialize", "patch", "watch", "list"]
+  verbs: ["initialize", "update", "patch", "watch", "list"]
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -27,7 +27,7 @@ roleRef:
   name: lxcfs-initializer-default
   apiGroup: rbac.authorization.k8s.io
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   initializers:
@@ -37,16 +37,18 @@ metadata:
   name: lxcfs-initializer
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: lxcfs-initializer
   template:
     metadata:
       labels:
         app: lxcfs-initializer
-      name: lxcfs-initializer
     spec:
       serviceAccountName: lxcfs-initializer-service-account
       containers:
         - name: lxcfs-initializer
-          image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs-initializer:0.0.2
+          image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs-initializer:0.0.3
           imagePullPolicy: Always
           args:
             - "-annotation=initializer.kubernetes.io/lxcfs"
