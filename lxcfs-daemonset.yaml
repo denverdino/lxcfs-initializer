@@ -19,14 +19,26 @@ spec:
         effect: NoSchedule
       containers:
       - name: lxcfs
-        image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs:2.0.8
+        image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs:2.0.8-1
         imagePullPolicy: Always
         securityContext:
           privileged: true
         volumeMounts:
-        - name: rootfs
-          mountPath: /host
+        - name: cgroup
+          mountPath: /sys/fs/cgroup
+        - name: lxcfs
+          mountPath: /var/lib/lxcfs
+          mountPropagation: Bidirectional
+        - name: usr-local
+          mountPath: /usr/local
       volumes:
-      - name: rootfs
+      - name: cgroup
         hostPath:
-          path: /
+          path: /sys/fs/cgroup
+      - name: usr-local
+        hostPath:
+          path: /usr/local
+      - name: lxcfs
+        hostPath:
+          path: /var/lib/lxcfs
+          type: DirectoryOrCreate

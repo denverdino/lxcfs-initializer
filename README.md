@@ -2,7 +2,7 @@
 
 > Initializers are an alpha feature and subject to change. Please report any Initializer specific issues on the [Kubernetes issue tracker](https://github.com/kubernetes/kubernetes/issues).
 
-## Build
+## Build (Optional, for developer only)
 
 Build initializer
 
