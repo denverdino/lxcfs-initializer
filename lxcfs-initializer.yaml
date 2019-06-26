@@ -5,7 +5,7 @@ metadata:
   namespace: default
 rules:
 - apiGroups: ["*"]
-  resources: ["deployments"]
+  resources: ["pods"]
   verbs: ["initialize", "update", "patch", "watch", "list"]
 ---
 apiVersion: v1
@@ -48,7 +48,7 @@ spec:
       serviceAccountName: lxcfs-initializer-service-account
       containers:
         - name: lxcfs-initializer
-          image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs-initializer:0.0.3
+          image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs-initializer:0.0.4
           imagePullPolicy: Always
           args:
             - "-annotation=initializer.kubernetes.io/lxcfs"
@@ -66,4 +66,4 @@ initializers:
         apiVersions:
           - "*"
         resources:
-          - deployments
+          - pods

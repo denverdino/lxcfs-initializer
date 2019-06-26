@@ -14,7 +14,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"k8s.io/api/apps/v1"
 	"log"
 	"os"
 	"os/signal"
@@ -80,33 +79,33 @@ func main() {
 	// -v /var/lib/lxcfs/proc/uptime:/proc/uptime:rw
 	c := &config{
 		volumeMounts: []corev1.VolumeMount{
-			corev1.VolumeMount{
+			{
 				Name:      "lxcfs-proc-cpuinfo",
 				MountPath: "/proc/cpuinfo",
 			},
-			corev1.VolumeMount{
+			{
 				Name:      "lxcfs-proc-meminfo",
 				MountPath: "/proc/meminfo",
 			},
-			corev1.VolumeMount{
+			{
 				Name:      "lxcfs-proc-diskstats",
 				MountPath: "/proc/diskstats",
 			},
-			corev1.VolumeMount{
+			{
 				Name:      "lxcfs-proc-stat",
 				MountPath: "/proc/stat",
 			},
-			corev1.VolumeMount{
+			{
 				Name:      "lxcfs-proc-swaps",
 				MountPath: "/proc/swaps",
 			},
-			corev1.VolumeMount{
+			{
 				Name:      "lxcfs-proc-uptime",
 				MountPath: "/proc/uptime",
 			},
 		},
 		volumes: []corev1.Volume{
-			corev1.Volume{
+			{
 				Name: "lxcfs-proc-cpuinfo",
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
@@ -114,7 +113,7 @@ func main() {
 					},
 				},
 			},
-			corev1.Volume{
+			{
 				Name: "lxcfs-proc-diskstats",
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
@@ -122,7 +121,7 @@ func main() {
 					},
 				},
 			},
-			corev1.Volume{
+			{
 				Name: "lxcfs-proc-meminfo",
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
@@ -130,7 +129,7 @@ func main() {
 					},
 				},
 			},
-			corev1.Volume{
+			{
 				Name: "lxcfs-proc-stat",
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
@@ -138,7 +137,7 @@ func main() {
 					},
 				},
 			},
-			corev1.Volume{
+			{
 				Name: "lxcfs-proc-swaps",
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
@@ -146,7 +145,7 @@ func main() {
 					},
 				},
 			},
-			corev1.Volume{
+			{
 				Name: "lxcfs-proc-uptime",
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
@@ -156,9 +155,9 @@ func main() {
 			},
 		},
 	}
-	// Watch uninitialized Deployments in all namespaces.
-	restClient := clientset.AppsV1().RESTClient()
-	watchlist := cache.NewListWatchFromClient(restClient, "deployments", corev1.NamespaceAll, fields.Everything())
+	// Watch uninitialized Pods in all namespaces.
+	restClient := clientset.CoreV1().RESTClient()
+	watchlist := cache.NewListWatchFromClient(restClient, "pods", corev1.NamespaceAll, fields.Everything())
 
 	// Wrap the returned watchlist to workaround the inability to include
 	// the `IncludeUninitialized` list option when setting up watch clients.
@@ -175,10 +174,10 @@ func main() {
 
 	resyncPeriod := 30 * time.Second
 
-	_, controller := cache.NewInformer(includeUninitializedWatchlist, &v1.Deployment{}, resyncPeriod,
+	_, controller := cache.NewInformer(includeUninitializedWatchlist, &corev1.Pod{}, resyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				err := initializeDeployment(obj.(*v1.Deployment), c, clientset)
+				err := initializePod(obj.(*corev1.Pod), c, clientset)
 				if err != nil {
 					log.Println(err)
 				}
@@ -197,28 +196,28 @@ func main() {
 	close(stop)
 }
 
-func initializeDeployment(deployment *v1.Deployment, c *config, clientset *kubernetes.Clientset) error {
-	if deployment.ObjectMeta.GetInitializers() != nil {
-		pendingInitializers := deployment.ObjectMeta.GetInitializers().Pending
+func initializePod(pod *corev1.Pod, c *config, clientset *kubernetes.Clientset) error {
+	if pod.ObjectMeta.GetInitializers() != nil {
+		pendingInitializers := pod.ObjectMeta.GetInitializers().Pending
 
 		if initializerName == pendingInitializers[0].Name {
-			log.Printf("Initializing deployment: %s", deployment.Name)
+			log.Printf("Initializing pod: %s", pod.Name)
 
-			initializedDeployment := deployment.DeepCopy()
+			initializedPod := pod.DeepCopy()
 
 			// Remove self from the list of pending Initializers while preserving ordering.
 			if len(pendingInitializers) == 1 {
-				initializedDeployment.ObjectMeta.Initializers = nil
+				initializedPod.ObjectMeta.Initializers = nil
 			} else {
-				initializedDeployment.ObjectMeta.Initializers.Pending = append(pendingInitializers[:0], pendingInitializers[1:]...)
+				initializedPod.ObjectMeta.Initializers.Pending = append(pendingInitializers[:0], pendingInitializers[1:]...)
 			}
 
 			if requireAnnotation {
-				a := deployment.ObjectMeta.GetAnnotations()
+				a := pod.ObjectMeta.GetAnnotations()
 				_, ok := a[annotation]
 				if !ok {
 					log.Printf("Required '%s' annotation missing; skipping lxcfs injection", annotation)
-					_, err := clientset.AppsV1().Deployments(deployment.Namespace).Update(initializedDeployment)
+					_, err := clientset.CoreV1().Pods(pod.Namespace).Update(initializedPod)
 					if err != nil {
 						return err
 					}
@@ -226,33 +225,36 @@ func initializeDeployment(deployment *v1.Deployment, c *config, clientset *kuber
 				}
 			}
 
-			containers := initializedDeployment.Spec.Template.Spec.Containers
+			containers := initializedPod.Spec.Containers
 
-			// Modify the Deployment's Pod template to include the Envoy container
-			// and configuration volume. Then patch the original deployment.
+			// Modify the Pod spec to include the LXCFS volumes, then patch the original pod.
 			for i := range containers {
 				containers[i].VolumeMounts = append(containers[i].VolumeMounts, c.volumeMounts...)
 			}
 
-			initializedDeployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, c.volumes...)
+			initializedPod.Spec.Volumes = append(pod.Spec.Volumes, c.volumes...)
 
-			oldData, err := json.Marshal(deployment)
+			oldData, err := json.Marshal(pod)
 			if err != nil {
+				log.Printf("error in json.Marshal old pod %s: %v", pod.Name, err)
 				return err
 			}
 
-			newData, err := json.Marshal(initializedDeployment)
+			newData, err := json.Marshal(initializedPod)
 			if err != nil {
+				log.Printf("error in json.Marshal new pod %s: %v", pod.Name, err)
 				return err
 			}
 
-			patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, v1.Deployment{})
+			patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, corev1.Pod{})
 			if err != nil {
+				log.Printf("error in CreateTwoWayMergePatch %s: %v", pod.Name, err)
 				return err
 			}
 
-			_, err = clientset.AppsV1().Deployments(deployment.Namespace).Patch(deployment.Name, types.StrategicMergePatchType, patchBytes)
+			_, err = clientset.CoreV1().Pods(pod.Namespace).Patch(pod.Name, types.StrategicMergePatchType, patchBytes)
 			if err != nil {
+				log.Printf("error in Patch %s: %v", pod.Name, err)
 				return err
 			}
 		}

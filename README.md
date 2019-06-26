@@ -7,7 +7,7 @@
 Build initializer
 
 ```
-build-container
+build-container.sh
 ```
 
 #### Deploy  

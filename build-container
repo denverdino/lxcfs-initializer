@@ -1,6 +1,0 @@
-#!/bin/bash
-docker build -t registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs:2.0.8-1 lxcfs-image
-docker push registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs:2.0.8-1
-
-docker build -t registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs-initializer:0.0.3 .
-docker push registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs-initializer:0.0.3

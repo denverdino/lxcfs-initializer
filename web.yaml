@@ -1,8 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    "initializer.kubernetes.io/lxcfs": "true"
   labels:
     app: web
   name: web
@@ -13,6 +11,8 @@ spec:
       app: web
   template:
     metadata:
+      annotations:
+        "initializer.kubernetes.io/lxcfs": "true"
       labels:
         app: web
     spec:
