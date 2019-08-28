@@ -19,7 +19,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: lxcfs
-        image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs:3.0.4
+        image: registry.cn-hangzhou.aliyuncs.com/denverdino/lxcfs:3.1.2
         imagePullPolicy: Always
         securityContext:
           privileged: true
