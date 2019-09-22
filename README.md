@@ -1,6 +1,8 @@
 # Kubernetes Initializer for LXCFS
 
-> Initializers are an alpha feature and subject to change. Please report any Initializer specific issues on the [Kubernetes issue tracker](https://github.com/kubernetes/kubernetes/issues).
+**NOTE: Initializers has been deprecated in Kubernetes 1.14**
+
+Please use the version with Admission Webhook in https://github.com/denverdino/lxcfs-admission-webhook
 
 ## Build (Optional, for developer only)
 
